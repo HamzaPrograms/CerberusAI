@@ -76,11 +76,32 @@ encoded_df = pd.DataFrame(encoded_array, columns=encoder.get_feature_names_out(c
 df = df.drop(cat_columns, axis=1)
 df = pd.concat([df, encoded_df], axis=1)
 
-df = df.drop('session_id', axis=1) #Dropped session if column bc it doesnt help in training
+df = df.drop('session_id', axis=1) #Dropped session id column bc it doesnt help in training
 
 print("Data after encoding:\n", df.head())
 
 print(df.columns)
 #Keep in mind that not every option is added as a column for the encoded columns,
-#This is because if all are zero (edge,firefox,safari,unknown) all = 0. Then the
+#This is because if all are zero, e.g (edge,firefox,safari,unknown) all = 0. Then the
 #browser is chrome.
+
+#Feature Extraction----------------------------------------------------------------------------------
+df['login_duration_ratio'] = df['login_attempts'] / df['session_duration']
+df['failed_login_ratio'] = df['failed_logins'] / (df['login_attempts'] + 1)  # +1 to avoid division by zero
+df['suspicious_browser'] = df[['browser_type_Unknown', 'browser_type_Safari']].max(axis=1)
+
+def encryption_flag(row):
+    if row['encryption_used_nan'] == 1:
+        return 0
+    return 1
+df['encryption_flag'] = df.apply(encryption_flag, axis=1)
+
+
+#Feature Scaling----------------------------------------------------------------------------------
+
+
+#Split Data, Train, Test-------------------------------------------------------------------------------
+#When training separate target variable
+# X = df.drop('attack_detected', axis=1)
+# y = df['attack_detected']
+# ^ Can change/alter later on
