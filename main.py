@@ -4,6 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
 
 
 #Loading the dataset-----------------------------------------------------------------------
@@ -56,9 +60,6 @@ plt.tight_layout(rect=[0, 0, 1, 0.95])
 #PreProcessing---------------------------------------------------------------------------
 
 #Non numerical values before encoding
-print("Unique Protocol Types:", df['protocol_type'].unique())
-print("Unique Encryption Methods:", df['encryption_used'].unique())
-print("Unique Browser Types:", df['browser_type'].unique())
 
 # Instantiate the encoder
 encoder = OneHotEncoder(drop='first', sparse_output=False)
@@ -78,30 +79,94 @@ df = pd.concat([df, encoded_df], axis=1)
 
 df = df.drop('session_id', axis=1) #Dropped session id column bc it doesnt help in training
 
-print("Data after encoding:\n", df.head())
-
-print(df.columns)
 #Keep in mind that not every option is added as a column for the encoded columns,
 #This is because if all are zero, e.g (edge,firefox,safari,unknown) all = 0. Then the
 #browser is chrome.
 
 #Feature Extraction----------------------------------------------------------------------------------
-df['login_duration_ratio'] = df['login_attempts'] / df['session_duration']
 df['failed_login_ratio'] = df['failed_logins'] / (df['login_attempts'] + 1)  # +1 to avoid division by zero
 df['suspicious_browser'] = df[['browser_type_Unknown', 'browser_type_Safari']].max(axis=1)
 
-def encryption_flag(row):
-    if row['encryption_used_nan'] == 1:
-        return 0
-    return 1
-df['encryption_flag'] = df.apply(encryption_flag, axis=1)
-
-
 #Feature Scaling----------------------------------------------------------------------------------
+numerical_features = [
+    'network_packet_size', 'session_duration', 'ip_reputation_score', 'login_attempts',
+    'failed_logins', 'failed_login_ratio'
+]
 
+scaler = StandardScaler()
+df[numerical_features] = scaler.fit_transform(df[numerical_features])
+# print(df[numerical_features].mean())
+# print(df[numerical_features].std())
+# print(df.head)
 
 #Split Data, Train, Test-------------------------------------------------------------------------------
-#When training separate target variable
-# X = df.drop('attack_detected', axis=1)
-# y = df['attack_detected']
-# ^ Can change/alter later on
+#Separating Features and Target columns
+X = df.drop('attack_detected', axis=1)
+Y = df['attack_detected']
+
+# Split the data
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=42)
+#random state makes sure that the random processes produce the same results each time. ^
+
+print(f"Training set size: {X_train.shape}")
+print(f"Testing set size: {X_test.shape}")
+
+# Initialize the XGBoost Classifier
+xgb_model = XGBClassifier(
+    n_estimators=900,
+    learning_rate=0.1,
+    max_depth=6,
+    random_state=42,
+    use_label_encoder=False,
+    eval_metric='logloss' #the model will minimize logistic loss during training
+    #Logloss is used for binary classification
+)
+
+# Train the model
+xgb_model.fit(X_train, Y_train)
+print("Model training complete.")
+
+# Predict on the test set
+# y_pred = xgb_model.predict(X_test)
+
+# # Evaluation Metrics
+# accuracy = accuracy_score(Y_test, y_pred) #correct predictions/all predictions
+# precision = precision_score(Y_test, y_pred)#correct positive predictions/all positive predictions
+# recall = recall_score(Y_test, y_pred)#correct positive predictions/all actual positive cases.
+# f1 = f1_score(Y_test, y_pred)#harmonic mean of precision and recall
+
+# print(f"Accuracy: {accuracy:.4f}")
+# print(f"Precision: {precision:.4f}")
+# print(f"Recall: {recall:.4f}")
+# print(f"F1 Score: {f1:.4f}")
+
+# # Confusion Matrix
+# conf_matrix = confusion_matrix(Y_test, y_pred)
+# print("\nConfusion Matrix:\n", conf_matrix)
+
+# # Classification Report
+# print("\nClassification Report:\n", classification_report(Y_test, y_pred))
+
+
+
+y_probs = xgb_model.predict_proba(X_test)[:, 1]  # Probabilities for the positive class
+threshold = 0.25
+y_pred_adjusted = (y_probs >= threshold).astype(int)
+
+# Recalculate metrics with adjusted threshold
+accuracy = accuracy_score(Y_test, y_pred_adjusted)
+precision = precision_score(Y_test, y_pred_adjusted)
+recall = recall_score(Y_test, y_pred_adjusted)
+f1 = f1_score(Y_test, y_pred_adjusted)
+
+print(f"Adjusted Threshold = {threshold}")
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"F1 Score: {f1:.4f}")
+
+# Confusion Matrix
+conf_matrix = confusion_matrix(Y_test, y_pred_adjusted)
+print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
+
+#Test both thresholds before final product ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
