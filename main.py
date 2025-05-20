@@ -8,14 +8,15 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
-
-
+from scapy.all import sniff
+from scapy_utils import get_packet_size
+'''
 #Loading the dataset-----------------------------------------------------------------------
 DATASET_PATH = os.path.join(os.getcwd(), "cybersecurity_intrusion_data.csv")
 
 try:
     df = pd.read_csv(DATASET_PATH)
-    print(f"Dataset loaded successfully with {df.shape[0]} rows and {df.shape[1]} columns.")
+    #print(f"Dataset loaded successfully with {df.shape[0]} rows and {df.shape[1]} columns.")
 except FileNotFoundError:
     print(f"Dataset not found at {DATASET_PATH}. Please ensure the file is in the correct location.")
 except Exception as e:
@@ -108,8 +109,8 @@ Y = df['attack_detected']
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=42)
 #random state makes sure that the random processes produce the same results each time. ^
 
-print(f"Training set size: {X_train.shape}")
-print(f"Testing set size: {X_test.shape}")
+# print(f"Training set size: {X_train.shape}")
+# print(f"Testing set size: {X_test.shape}")
 
 # Initialize the XGBoost Classifier
 xgb_model = XGBClassifier(
@@ -117,14 +118,13 @@ xgb_model = XGBClassifier(
     learning_rate=0.1,
     max_depth=6,
     random_state=42,
-    use_label_encoder=False,
     eval_metric='logloss' #the model will minimize logistic loss during training
     #Logloss is used for binary classification
 )
 
 # Train the model
 xgb_model.fit(X_train, Y_train)
-print("Model training complete.")
+#print("Model training complete.")
 
 # Predict on the test set
 # y_pred = xgb_model.predict(X_test)
@@ -159,14 +159,22 @@ precision = precision_score(Y_test, y_pred_adjusted)
 recall = recall_score(Y_test, y_pred_adjusted)
 f1 = f1_score(Y_test, y_pred_adjusted)
 
-print(f"Adjusted Threshold = {threshold}")
-print(f"Accuracy: {accuracy:.4f}")
-print(f"Precision: {precision:.4f}")
-print(f"Recall: {recall:.4f}")
-print(f"F1 Score: {f1:.4f}")
+# print(f"Adjusted Threshold = {threshold}")
+# print(f"Accuracy: {accuracy:.4f}")
+# print(f"Precision: {precision:.4f}")
+# print(f"Recall: {recall:.4f}")
+# print(f"F1 Score: {f1:.4f}")
 
 # Confusion Matrix
 conf_matrix = confusion_matrix(Y_test, y_pred_adjusted)
-print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
+#print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
 
 #Test both thresholds before final product ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+'''
+
+def process_packet(packet):
+    size = get_packet_size(packet)
+    print(f"Packet size: {size}")
+
+# Start sniffing
+sniff(prn=process_packet, count=1)
