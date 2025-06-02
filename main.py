@@ -8,9 +8,17 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
-from scapy.all import sniff
-from scapy_utils import get_packet_size
-'''
+from scapytools import (
+    get_packet_size,
+    get_protocol_type,
+    get_encryption_used,
+    get_session_duration,
+    get_unusual_time_access
+)
+from scapy.all import sniff, IP
+import time
+
+
 #Loading the dataset-----------------------------------------------------------------------
 DATASET_PATH = os.path.join(os.getcwd(), "cybersecurity_intrusion_data.csv")
 
@@ -159,22 +167,41 @@ precision = precision_score(Y_test, y_pred_adjusted)
 recall = recall_score(Y_test, y_pred_adjusted)
 f1 = f1_score(Y_test, y_pred_adjusted)
 
-# print(f"Adjusted Threshold = {threshold}")
-# print(f"Accuracy: {accuracy:.4f}")
-# print(f"Precision: {precision:.4f}")
-# print(f"Recall: {recall:.4f}")
-# print(f"F1 Score: {f1:.4f}")
+print(f"Adjusted Threshold = {threshold}")
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"F1 Score: {f1:.4f}")
 
 # Confusion Matrix
 conf_matrix = confusion_matrix(Y_test, y_pred_adjusted)
-#print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
+print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
 
 #Test both thresholds before final product ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 '''
-
 def process_packet(packet):
-    size = get_packet_size(packet)
-    print(f"Packet size: {size}")
+    if not packet.haslayer(IP):
+        return
 
-# Start sniffing
-sniff(prn=process_packet, count=1)
+    size = get_packet_size(packet)
+    proto = get_protocol_type(packet)
+    encryption = get_encryption_used(packet)
+    duration = get_session_duration(packet)
+    unusual_time = get_unusual_time_access()
+
+    print("="*50)
+    print(f"Packet Size: {size}")
+    print(f"Protocol Type: {proto}")
+    print(f"Encryption Used: {encryption}")
+    print(f"Session Duration: {duration:.2f} seconds")
+    print(f"Unusual Time Access: {unusual_time}")
+
+if __name__ == "__main__":
+    print("Starting packet sniffing for testing...")
+    # sniff(prn=lambda x: print(x.summary()), count=10, iface="Wi-Fi")  # Captures 10 packets and calls process_packet()
+    for i in range (10):
+        print(f"-----------------------------------------------------Iteration {i+1}-----------------------------------------------------")
+        sniff(prn=process_packet, timeout=3, iface="Wi-Fi")
+        # time.sleep(2)
+'''
