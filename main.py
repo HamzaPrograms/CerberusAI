@@ -13,7 +13,8 @@ from scapytools import (
     get_protocol_type,
     get_encryption_used,
     get_session_duration,
-    get_unusual_time_access
+    get_unusual_time_access,
+    track_login_behavior
 )
 from scapy.all import sniff, IP
 import time
@@ -68,18 +69,16 @@ plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 #PreProcessing---------------------------------------------------------------------------
 
-#Non numerical values before encoding
+#Remove browser type row, bc undetectable with scapy
+df = df.drop('browser_type', axis=1, errors='ignore')
+#Dropped IP reputation score, bc Scapy cannot retrieve this
+df = df.drop('ip_reputation_score', axis=1, errors='ignore')
+print(df.head)
 
-# Instantiate the encoder
+# Encoding
 encoder = OneHotEncoder(drop='first', sparse_output=False)
-
-# Columns to encode
-cat_columns = ['protocol_type', 'encryption_used', 'browser_type']
-
-# Apply the encoder
+cat_columns = ['protocol_type', 'encryption_used']
 encoded_array = encoder.fit_transform(df[cat_columns]) #this is a NumPy array
-
-# Create a DataFrame from the encoded array
 encoded_df = pd.DataFrame(encoded_array, columns=encoder.get_feature_names_out(cat_columns))
 
 # Drop the original categorical columns and concatenate the encoded columns
@@ -88,17 +87,12 @@ df = pd.concat([df, encoded_df], axis=1)
 
 df = df.drop('session_id', axis=1) #Dropped session id column bc it doesnt help in training
 
-#Keep in mind that not every option is added as a column for the encoded columns,
-#This is because if all are zero, e.g (edge,firefox,safari,unknown) all = 0. Then the
-#browser is chrome.
-
 #Feature Extraction----------------------------------------------------------------------------------
 df['failed_login_ratio'] = df['failed_logins'] / (df['login_attempts'] + 1)  # +1 to avoid division by zero
-df['suspicious_browser'] = df[['browser_type_Unknown', 'browser_type_Safari']].max(axis=1)
 
 #Feature Scaling----------------------------------------------------------------------------------
 numerical_features = [
-    'network_packet_size', 'session_duration', 'ip_reputation_score', 'login_attempts',
+    'network_packet_size', 'session_duration', 'login_attempts',
     'failed_logins', 'failed_login_ratio'
 ]
 
@@ -122,9 +116,9 @@ X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_
 
 # Initialize the XGBoost Classifier
 xgb_model = XGBClassifier(
-    n_estimators=900,
-    learning_rate=0.1,
-    max_depth=6,
+    n_estimators=1000,
+    learning_rate=0.5,
+    max_depth=9,
     random_state=42,
     eval_metric='logloss' #the model will minimize logistic loss during training
     #Logloss is used for binary classification
@@ -137,7 +131,7 @@ xgb_model.fit(X_train, Y_train)
 # Predict on the test set
 # y_pred = xgb_model.predict(X_test)
 
-# # Evaluation Metrics
+# # # Evaluation Metrics
 # accuracy = accuracy_score(Y_test, y_pred) #correct predictions/all predictions
 # precision = precision_score(Y_test, y_pred)#correct positive predictions/all positive predictions
 # recall = recall_score(Y_test, y_pred)#correct positive predictions/all actual positive cases.
@@ -148,17 +142,17 @@ xgb_model.fit(X_train, Y_train)
 # print(f"Recall: {recall:.4f}")
 # print(f"F1 Score: {f1:.4f}")
 
-# # Confusion Matrix
+# # # Confusion Matrix
 # conf_matrix = confusion_matrix(Y_test, y_pred)
 # print("\nConfusion Matrix:\n", conf_matrix)
 
-# # Classification Report
+# # # Classification Report
 # print("\nClassification Report:\n", classification_report(Y_test, y_pred))
 
 
 
 y_probs = xgb_model.predict_proba(X_test)[:, 1]  # Probabilities for the positive class
-threshold = 0.25
+threshold = 0.34
 y_pred_adjusted = (y_probs >= threshold).astype(int)
 
 # Recalculate metrics with adjusted threshold
@@ -177,8 +171,6 @@ print(f"F1 Score: {f1:.4f}")
 conf_matrix = confusion_matrix(Y_test, y_pred_adjusted)
 print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
 
-#Test both thresholds before final product ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 '''
 def process_packet(packet):
     if not packet.haslayer(IP):
@@ -189,6 +181,7 @@ def process_packet(packet):
     encryption = get_encryption_used(packet)
     duration = get_session_duration(packet)
     unusual_time = get_unusual_time_access()
+    login_attempts, failed_logins, failed_ratio = track_login_behavior(packet)
 
     print("="*50)
     print(f"Packet Size: {size}")
@@ -196,12 +189,18 @@ def process_packet(packet):
     print(f"Encryption Used: {encryption}")
     print(f"Session Duration: {duration:.2f} seconds")
     print(f"Unusual Time Access: {unusual_time}")
+    print(f"Login Attempts: {login_attempts}")
+    print(f"Failed Logins: {failed_logins}")
+    print(f"Failed Login Ratio: {failed_ratio}")
 
 if __name__ == "__main__":
     print("Starting packet sniffing for testing...")
     # sniff(prn=lambda x: print(x.summary()), count=10, iface="Wi-Fi")  # Captures 10 packets and calls process_packet()
-    for i in range (10):
+    # for i in range (10):
+    i = 0
+    while True:
+        i = i+1
         print(f"-----------------------------------------------------Iteration {i+1}-----------------------------------------------------")
-        sniff(prn=process_packet, timeout=3, iface="Wi-Fi")
+        sniff(prn=process_packet, timeout=1, iface="Wi-Fi")
         # time.sleep(2)
 '''
