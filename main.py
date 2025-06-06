@@ -15,7 +15,7 @@ from scapytools import (
     get_session_duration,
     get_unusual_time_access,
     track_login_behavior,
-    extract_features_row
+    get_source_ip
 )
 from scapy.all import sniff, IP
 import time
@@ -110,7 +110,6 @@ X = df.drop('attack_detected', axis=1)
 
 
 Y = df['attack_detected']
-print(X.head)
 # Split the data
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=42)
 #random state makes sure that the random processes produce the same results each time. ^
@@ -162,20 +161,20 @@ threshold = 0.34
 y_pred_adjusted = (y_probs >= threshold).astype(int)
 
 # Recalculate metrics with adjusted threshold
-accuracy = accuracy_score(Y_test, y_pred_adjusted)
-precision = precision_score(Y_test, y_pred_adjusted)
-recall = recall_score(Y_test, y_pred_adjusted)
-f1 = f1_score(Y_test, y_pred_adjusted)
+# accuracy = accuracy_score(Y_test, y_pred_adjusted)
+# precision = precision_score(Y_test, y_pred_adjusted)
+# recall = recall_score(Y_test, y_pred_adjusted)
+# f1 = f1_score(Y_test, y_pred_adjusted)
 
-print(f"Adjusted Threshold = {threshold}")
-print(f"Accuracy: {accuracy:.4f}")
-print(f"Precision: {precision:.4f}")
-print(f"Recall: {recall:.4f}")
-print(f"F1 Score: {f1:.4f}")
+# print(f"Adjusted Threshold = {threshold}")
+# print(f"Accuracy: {accuracy:.4f}")
+# print(f"Precision: {precision:.4f}")
+# print(f"Recall: {recall:.4f}")
+# print(f"F1 Score: {f1:.4f}")
 
 # Confusion Matrix
-conf_matrix = confusion_matrix(Y_test, y_pred_adjusted)
-print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
+# conf_matrix = confusion_matrix(Y_test, y_pred_adjusted)
+# print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
 
 
 # Load pretrained objects
@@ -218,6 +217,20 @@ def process_packet(packet):
         "failed_login_ratio": failed_ratio
     }])
 
+    packet_size_val = df_row["network_packet_size"].iloc[0]
+    protocol_tcp = df_row["protocol_type_TCP"].iloc[0]
+    protocol_udp = df_row["protocol_type_UDP"].iloc[0]
+    #Getting IP address of source
+    src_ip = get_source_ip(packet)
+    
+
+    if protocol_tcp == 1:
+        protocol_type_val = "TCP"
+    elif protocol_udp == 1:
+        protocol_type_val = "UDP"
+    else:
+        protocol_type_val = "ICMP"
+
     # Apply pre-trained scaling
     df_row[numerical_features] = scaler.transform(df_row[numerical_features])
 
@@ -229,13 +242,13 @@ def process_packet(packet):
     confidence = xgb_model.predict_proba(df_row)[0][1]
 
     # Print info
-    print(df_row.to_string(index=False))
-    print(f"Predicted Attack: {bool(prediction[0])} (Confidence: {confidence:.2f})")
+    if src_ip:
+        print(f"Source IP: {src_ip} | Protocol Type: {protocol_type_val} | Packet Size: {packet_size_val} | Predicted Attack: {bool(prediction[0])} (Confidence: {confidence:.2f})")
 
 if __name__ == "__main__":
     print("Starting packet sniffing for analysis...")
     i = 0
     while True:
         i += 1
-        print(f"\n---------------------- Iteration {i} ----------------------")
+        print(f"\n---------------------- Scan {i} Results ----------------------")
         sniff(prn=process_packet, timeout=5, iface="Wi-Fi")  # adjust iface if needed

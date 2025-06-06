@@ -79,43 +79,7 @@ def track_login_behavior(packet):
 
     return 0, 0, 0
 
-#Function to return a pandas row for model prediction
-def extract_features_row(packet, scaler=None):
-    if not packet.haslayer(IP):
-        return None
-
-    size = get_packet_size(packet)
-    proto = get_protocol_type(packet)
-    encryption = get_encryption_used(packet)
-    duration = get_session_duration(packet)
-    unusual_time = get_unusual_time_access()
-    login_attempts, failed_logins, failed_ratio = track_login_behavior(packet)
-
-    # One-hot encoding for protocol
-    protocol_type_TCP = 1.0 if proto == "TCP" else 0.0
-    protocol_type_UDP = 1.0 if proto == "UDP" else 0.0
-
-    # One-hot encoding for encryption
-    encryption_used_DES = 1.0 if encryption == "DES" else 0.0
-    encryption_used_nan = 1.0 if encryption not in ["AES", "None", "DES"] else 0.0
-
-    # Raw (unscaled) features
-    row = pd.DataFrame([{
-        "network_packet_size": size,
-        "login_attempts": login_attempts,
-        "session_duration": duration,
-        "failed_logins": failed_logins,
-        "unusual_time_access": unusual_time,
-        "protocol_type_TCP": protocol_type_TCP,
-        "protocol_type_UDP": protocol_type_UDP,
-        "encryption_used_DES": encryption_used_DES,
-        "encryption_used_nan": encryption_used_nan,
-        "failed_login_ratio": failed_ratio
-    }])
-
-    # Optional: scale if scaler is passed in
-    if scaler:
-        cols_to_scale = ["network_packet_size", "login_attempts", "session_duration", "failed_logins", "failed_login_ratio"]
-        row[cols_to_scale] = scaler.transform(row[cols_to_scale])
-
-    return row
+def get_source_ip(packet):
+    if packet.haslayer(IP):
+        return packet[IP].src
+    return None
