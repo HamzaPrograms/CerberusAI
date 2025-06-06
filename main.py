@@ -14,10 +14,13 @@ from scapytools import (
     get_encryption_used,
     get_session_duration,
     get_unusual_time_access,
-    track_login_behavior
+    track_login_behavior,
+    extract_features_row
 )
 from scapy.all import sniff, IP
 import time
+import joblib
+from joblib import load
 
 
 #Loading the dataset-----------------------------------------------------------------------
@@ -73,7 +76,6 @@ plt.tight_layout(rect=[0, 0, 1, 0.95])
 df = df.drop('browser_type', axis=1, errors='ignore')
 #Dropped IP reputation score, bc Scapy cannot retrieve this
 df = df.drop('ip_reputation_score', axis=1, errors='ignore')
-print(df.head)
 
 # Encoding
 encoder = OneHotEncoder(drop='first', sparse_output=False)
@@ -100,13 +102,15 @@ scaler = StandardScaler()
 df[numerical_features] = scaler.fit_transform(df[numerical_features])
 # print(df[numerical_features].mean())
 # print(df[numerical_features].std())
-# print(df.head)
+
 
 #Split Data, Train, Test-------------------------------------------------------------------------------
 #Separating Features and Target columns
 X = df.drop('attack_detected', axis=1)
-Y = df['attack_detected']
 
+
+Y = df['attack_detected']
+print(X.head)
 # Split the data
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=42)
 #random state makes sure that the random processes produce the same results each time. ^
@@ -124,8 +128,10 @@ xgb_model = XGBClassifier(
     #Logloss is used for binary classification
 )
 
+
 # Train the model
 xgb_model.fit(X_train, Y_train)
+
 #print("Model training complete.")
 
 # Predict on the test set
@@ -171,10 +177,20 @@ print(f"F1 Score: {f1:.4f}")
 conf_matrix = confusion_matrix(Y_test, y_pred_adjusted)
 print("\nConfusion Matrix with Adjusted Threshold:\n", conf_matrix)
 
-'''
+
+# Load pretrained objects
+scaler = load("scaler.joblib")
+xgb_model = load("xgb_model.joblib")
+FEATURE_ORDER = load("feature_order.joblib")
+
+numerical_features = [
+    'network_packet_size', 'session_duration', 'login_attempts',
+    'failed_logins', 'failed_login_ratio'
+]
+
 def process_packet(packet):
     if not packet.haslayer(IP):
-        return
+        return  # skip non-IP packets
 
     size = get_packet_size(packet)
     proto = get_protocol_type(packet)
@@ -183,24 +199,43 @@ def process_packet(packet):
     unusual_time = get_unusual_time_access()
     login_attempts, failed_logins, failed_ratio = track_login_behavior(packet)
 
-    print("="*50)
-    print(f"Packet Size: {size}")
-    print(f"Protocol Type: {proto}")
-    print(f"Encryption Used: {encryption}")
-    print(f"Session Duration: {duration:.2f} seconds")
-    print(f"Unusual Time Access: {unusual_time}")
-    print(f"Login Attempts: {login_attempts}")
-    print(f"Failed Logins: {failed_logins}")
-    print(f"Failed Login Ratio: {failed_ratio}")
+    # One-hot encoding manually
+    protocol_type_TCP = 1 if proto == "TCP" else 0
+    protocol_type_UDP = 1 if proto == "UDP" else 0
+    encryption_used_DES = 1 if encryption == "DES" else 0
+    encryption_used_nan = 1 if encryption not in ["AES", "None", "DES"] else 0
+
+    df_row = pd.DataFrame([{
+        "network_packet_size": size,
+        "login_attempts": login_attempts,
+        "session_duration": duration,
+        "failed_logins": failed_logins,
+        "unusual_time_access": unusual_time,
+        "protocol_type_TCP": protocol_type_TCP,
+        "protocol_type_UDP": protocol_type_UDP,
+        "encryption_used_DES": encryption_used_DES,
+        "encryption_used_nan": encryption_used_nan,
+        "failed_login_ratio": failed_ratio
+    }])
+
+    # Apply pre-trained scaling
+    df_row[numerical_features] = scaler.transform(df_row[numerical_features])
+
+    # Reorder columns exactly as during training
+    df_row = df_row[FEATURE_ORDER]
+
+    # Predict
+    prediction = xgb_model.predict(df_row)
+    confidence = xgb_model.predict_proba(df_row)[0][1]
+
+    # Print info
+    print(df_row.to_string(index=False))
+    print(f"Predicted Attack: {bool(prediction[0])} (Confidence: {confidence:.2f})")
 
 if __name__ == "__main__":
-    print("Starting packet sniffing for testing...")
-    # sniff(prn=lambda x: print(x.summary()), count=10, iface="Wi-Fi")  # Captures 10 packets and calls process_packet()
-    # for i in range (10):
+    print("Starting packet sniffing for analysis...")
     i = 0
     while True:
-        i = i+1
-        print(f"-----------------------------------------------------Iteration {i+1}-----------------------------------------------------")
-        sniff(prn=process_packet, timeout=1, iface="Wi-Fi")
-        # time.sleep(2)
-'''
+        i += 1
+        print(f"\n---------------------- Iteration {i} ----------------------")
+        sniff(prn=process_packet, timeout=5, iface="Wi-Fi")  # adjust iface if needed
