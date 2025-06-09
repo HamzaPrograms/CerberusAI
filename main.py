@@ -21,6 +21,7 @@ from scapy.all import sniff, IP
 import time
 import joblib
 from joblib import load
+import json
 
 
 #Loading the dataset-----------------------------------------------------------------------
@@ -243,8 +244,17 @@ def process_packet(packet):
 
     # Print info
     if src_ip:
-        print(f"Source IP: {src_ip} | Protocol Type: {protocol_type_val} | Packet Size: {packet_size_val} | Predicted Attack: {bool(prediction[0])} (Confidence: {confidence:.2f})")
+        #print(f"Source IP: {src_ip} | Protocol Type: {protocol_type_val} | Packet Size: {packet_size_val} | Predicted Attack: {bool(prediction[0])} (Confidence: {confidence:.2f})")
+        scan_results.append({
+            "ip": str(src_ip),
+            "protocol": str(protocol_type_val),
+            "packet_size": int(packet_size_val),
+            "attack": bool(prediction[0])
+        })
+        print(scan_results)
 
+
+scan_results = []
 if __name__ == "__main__":
     print("Starting packet sniffing for analysis...")
     i = 0
@@ -252,3 +262,6 @@ if __name__ == "__main__":
         i += 1
         print(f"\n---------------------- Scan {i} Results ----------------------")
         sniff(prn=process_packet, timeout=5, iface="Wi-Fi")  # adjust iface if needed
+        with open("scan_results.json", "w") as f:
+            json.dump(scan_results, f, indent=2)
+        scan_results = []  # clear for next cycle

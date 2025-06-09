@@ -1,38 +1,146 @@
-.App {
-  text-align: center;
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000000;
+  color: #8E00FF;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.app {
+  padding: 40px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.title-bar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.App-link {
-  color: #61dafb;
+.logo {
+  height: 100px;
+  width: 100px;
+  object-fit: contain;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
+.title {
+  font-size: 4rem;
+  color: #8E00FF;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+
+.main-content {
+  background-color: #111111;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  height: 500px;
+  overflow-y: auto;
+}
+
+h2 {
+  color: #8E00FF;
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  background-color: #1a1a1a;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  display: flex;
+  justify-content: space-between;
+  color: #dcdcdc;
+}
+
+.scan-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #ccc;
+  font-size: 1.1rem;
+}
+
+.scan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.1rem;
+  color: #6e36c2;
+  font-weight: bold;
+}
+
+.scan-table th,
+.scan-table td {
+  text-align: left;
+  padding: 12px 16px;
+  color: #6e36c2;
+  font-weight: bold;
+}
+
+
+.scan-table th {
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: #8E00FF;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #333;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111; /* scrollbar background */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #6e36c2; /* scrollbar thumb color */
+  border-radius: 10px;
+  border: 2px solid #000; /* for spacing effect */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8E00FF; /* brighter on hover */
+}
+
+.scan-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #6e36c2;
+  border-top: 3px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: #6e36c2;
+  letter-spacing: 0.3px;
+  font-weight: bold;
 }
